@@ -1,43 +1,66 @@
+# src/data/dataset.py
+
 import torch
 from torch.utils.data import Dataset
-import nltk
-# nltk.download('punkt')  # Download punkt tokenizer if you haven't already
 
 class ABSADataset(Dataset):
-    def __init__(self, data, vocabulary):
-        self.data = data
-        self.vocabulary = vocabulary
-        self.tokenizer = nltk.word_tokenize  # Use nltk tokenizer
+    """Dataset for aspect-based sentiment analysis.
 
-        self.processed_data = self._preprocess_data()
-    
+    This dataset class prepares the data for training and evaluation.
+    It tokenizes the input text and returns the input IDs, attention mask,
+    and sentiment label.
+    """
+
+    def __init__(self, data, tokenizer, max_len):
+        """Initializes the ABSADataset.
+
+        Args:
+            data (list): List of dictionaries containing 'text', 'aspect', and 'sentiment'.
+            tokenizer (transformers.PreTrainedTokenizer): Tokenizer to use for encoding the data.
+            max_len (int): Maximum length of the input sequences.
+        """
+        self.data = data
+        self.tokenizer = tokenizer
+        self.max_len = max_len
+        self.label_map = {"negative": 0, "neutral": 1, "positive": 2}
+
     def __len__(self):
-        return len(self.processed_data)
+        """Returns the length of the dataset.
+        """
+        return len(self.data)
 
     def __getitem__(self, idx):
-        return self.processed_data[idx]
+        """Returns a single item from the dataset.
 
-    def _preprocess_data(self):
-        processed_data = []
-        for item in self.data:
-            text = item['text']
-            aspect = item['aspect']
-            sentiment = item['sentiment']
+        Args:
+            idx (int): Index of the item to retrieve.
 
-            # Tokenize text and aspect
-            text_tokens = self.tokenizer(text)
-            aspect_tokens = self.tokenizer(aspect)
+        Returns:
+            dict: Dictionary containing the input IDs, attention mask, and sentiment label.
+        """
+        item = self.data[idx]
+        text = item['text']
+        aspect = item['aspect']
+        sentiment = item['sentiment']
 
-            # Map tokens to indices using the vocabulary
-            text_indices = [self.vocabulary.token_to_index(token) for token in text_tokens]
-            aspect_indices = [self.vocabulary.token_to_index(token) for token in aspect_tokens]
+        # Combine text and aspect for input
+        combined_text = f"{text} {aspect}"
 
-            # Convert sentiment to numerical label (assuming a mapping like positive: 2, negative: 0, neutral: 1)
-            sentiment_label = {'positive': 2, 'negative': 0, 'neutral': 1}[sentiment]
+        # Tokenize the combined text
+        encoding = self.tokenizer(combined_text,
+                                 add_special_tokens=True,
+                                 max_length=self.max_len,
+                                 truncation=True,
+                                 padding='max_length',
+                                 return_attention_mask=True,
+                                 return_tensors='pt')
 
-            processed_data.append({
-                'text': torch.tensor(text_indices),
-                'aspect': torch.tensor(aspect_indices),
-                'sentiment': torch.tensor(sentiment_label)
-            })
-        return processed_data
+        input_ids = encoding['input_ids'].flatten()
+        attention_mask = encoding['attention_mask'].flatten()
+        labels = torch.tensor(self.label_map[sentiment], dtype=torch.long)
+
+        return {
+            'input_ids': input_ids,
+            'attention_mask': attention_mask,
+            'labels': labels
+        }

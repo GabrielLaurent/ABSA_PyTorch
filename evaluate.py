@@ -1,41 +1,45 @@
 # evaluate.py
 
 import torch
-import torch.nn as nn
 from src.models.model import ABSAModel
 from src.data.dataloaders import create_data_loader
+from src.utils.config import Config
 from src.training.trainer import evaluate
-from src.utils.config import load_config
-from transformers import AutoTokenizer
 
-if __name__ == '__main__':
+
+def main():
+    """Main evaluation function.
+    """
     # Load configuration
-    config = load_config('config.json')
+    config = Config('config.json')
 
     # Set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
 
-    # Load data (example data)
-    test_data = [
-        {'text': 'The price was high', 'aspect': 'price', 'sentiment': 0},
-        {'text': 'The atmosphere was nice', 'aspect': 'atmosphere', 'sentiment': 1}
-    ]
+    # Load tokenizer and model
+    from transformers import AutoTokenizer
+    tokenizer = AutoTokenizer.from_pretrained(config.bert_model_name)
+    model = ABSAModel(config.bert_model_name, config.num_classes).to(device)
 
-    tokenizer = AutoTokenizer.from_pretrained(config['pretrained_model'])
-
-    # Create data loaders
-    test_loader = create_data_loader(test_data, tokenizer, config['max_len'], config['batch_size'])
-
-    # Initialize model
-    model = ABSAModel(len(tokenizer), config['embedding_dim'], config['hidden_dim'], config['output_dim']).to(device)
-
-    # Load the model checkpoint
-    model.load_state_dict(torch.load('checkpoints/model.pth'))  # Replace with your checkpoint path
+    # Load the checkpoint
+    model.load_state_dict(torch.load(config.checkpoint_path))
     model.eval()
 
-    # Define loss function
-    criterion = nn.CrossEntropyLoss()
+    # Prepare data loader
+    # Replace the following sample data with your evaluation data.
+    eval_data = [
+        {"text": "The service was slow.", "aspect": "service", "sentiment": "negative"},
+        {"text": "I enjoyed the music.", "aspect": "music", "sentiment": "positive"},
+    ]
+
+    eval_loader = create_data_loader(eval_data, tokenizer, config.max_len, config.batch_size, shuffle=False)
 
     # Evaluate the model
-    loss, accuracy = evaluate(model, test_loader, criterion, device)
-    print(f'Test Loss: {loss:.4f}, Accuracy: {accuracy:.4f}')
+    eval_loss, eval_accuracy = evaluate(model, eval_loader, device)
+
+    print(f"Evaluation Loss: {eval_loss:.4f}, Evaluation Accuracy: {eval_accuracy:.4f}")
+
+
+if __name__ == '__main__':
+    main()
