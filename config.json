@@ -1,14 +1,13 @@
 {
   "data_dir": "data",
-  "train_file": "train.csv",
-  "val_file": "val.csv",
-  "test_file": "test.csv",
   "embedding_dim": 100,
-  "hidden_dim": 256,
-  "num_classes": 3,
+  "hidden_dim": 128,
+  "num_layers": 1,
+  "dropout": 0.5,
   "learning_rate": 0.001,
   "batch_size": 32,
-  "num_epochs": 5, 
-  "vocab_size": 10000, 
-  "pretrained_embeddings": false
+  "num_epochs": 10,
+  "pretrained_embeddings_path": "data/glove.6B.100d.txt",
+  "fine_tune_embeddings": true,
+  "aspect_categories": ["location general", "location facilities", "location services", "food prices", "food quality", "food general", "service prices", "service quality", "service general", "ambience general"]
 }
