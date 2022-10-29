@@ -1,48 +1,47 @@
-# Compiled Python files
+# Byte-compiled / optimized / DLL files
+__pycache__/
 *.pyc
 *.pyo
-__pycache__/
+*.pyd
+
+# C extensions
+*.so
 
 # Distribution / packaging
 .eggs/
 dist/
 build/
-lib/
-lib64/
-*.egg-info/
 
-# Installed packages
-# Edit this if you feel necessary
-#src/
+# PyInstaller
+*.manifest
+*.spec
+
+# VCS
+.svn
+.hg
+.git
 
 # Environments
-.venv
+.env
 venv/
 env/
-ENV/
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.coverage
-.cache
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# OS generated files #
+# OS generated files
 .DS_Store
 Thumbs.db
+
+# IDE files
+.idea/
+*.ipr
+*.iws
+*.iml
 
 # Log files
 *.log
 
 # Checkpoints
-checkpoints/*
+checkpoints/
 
-# Data
-data/*
-
-#private_doc directory
+#Private docs
 private_doc/
 private_doc/*
