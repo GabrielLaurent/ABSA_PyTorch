@@ -1,28 +1,62 @@
 import torch
-import json
-from src.models.model import AspectBasedSentimentAnalysis
+import torch.nn as nn
+import torch.optim as optim
 from src.data.dataloaders import create_dataloaders
-from src.training.trainer import Trainer
+from src.models.model import ABSAClassifier
 from src.utils.config import Config
+import logging
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def main():
-    config = Config('config.json')
-    config = config.get_config()
+def train(model, train_loader, val_loader, optimizer, criterion, config):
+    logging.info("Starting training...")
+    for epoch in range(config.num_epochs):
+        model.train()
+        train_loss = 0.0
+        for batch in train_loader:
+            optimizer.zero_grad()
+            text, aspect, label = batch
+            outputs = model(text, aspect)
+            loss = criterion(outputs, label)
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item()
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
+        train_loss /= len(train_loader)
 
-    model = AspectBasedSentimentAnalysis(config['embedding_dim'], config['hidden_dim'], config['num_classes']).to(device)
-    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(config['data_path'], config['batch_size'])
+        # Evaluate on validation set
+        model.eval()
+        val_loss = 0.0
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for batch in val_loader:
+                text, aspect, label = batch
+                outputs = model(text, aspect)
+                loss = criterion(outputs, label)
+                val_loss += loss.item()
+                _, predicted = torch.max(outputs.data, 1)
+                total += label.size(0)
+                correct += (predicted == label).sum().item()
 
-    trainer = Trainer(model, config, device)
+        val_loss /= len(val_loader)
+        accuracy = 100 * correct / total
 
-    for epoch in range(config['epochs']):
-        train_loss = trainer.train_epoch(train_dataloader)
-        print(f"Epoch {epoch+1}/{config['epochs']}, Train Loss: {train_loss:.4f}")
+        logging.info(f'Epoch: {epoch+1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, Val Acc: {accuracy:.2f}%')
 
-        # Add validation and testing later
+        # Check for overfitting/underfitting (basic check)
+        if epoch > 0 and val_loss > train_loss:
+            logging.warning("Possible overfitting detected.")
 
-if __name__ == "__main__":
-    main()
+    logging.info("Training finished!")
+
+if __name__ == '__main__':
+    config = Config("config.json")
+    train_loader, val_loader, _ = create_dataloaders(config)
+
+    model = ABSAClassifier(config.vocab_size, config.embedding_dim, config.hidden_dim, config.num_classes)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
+
+    train(model, train_loader, val_loader, optimizer, criterion, config)

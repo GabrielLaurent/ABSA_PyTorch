@@ -1,10 +1,14 @@
 {
-  "pretrained_model": "bert-base-uncased",
-  "max_len": 128,
-  "batch_size": 32,
+  "data_dir": "data",
+  "train_file": "train.csv",
+  "val_file": "val.csv",
+  "test_file": "test.csv",
   "embedding_dim": 100,
   "hidden_dim": 256,
-  "output_dim": 3,
+  "num_classes": 3,
   "learning_rate": 0.001,
-  "epochs": 10
+  "batch_size": 32,
+  "num_epochs": 5, 
+  "vocab_size": 10000, 
+  "pretrained_embeddings": false
 }
