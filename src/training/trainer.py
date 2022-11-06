@@ -1,62 +1,60 @@
 import torch
 import torch.nn as nn
-from torch.optim import AdamW
-from torch.utils.data import DataLoader
-from tqdm import tqdm
+from sklearn.metrics import accuracy_score, f1_score
+import logging
 
 class Trainer:
-    def __init__(self, model: nn.Module, train_dataloader: DataLoader, val_dataloader: DataLoader, config: dict):
+    def __init__(self, model, optimizer, criterion, device):
         self.model = model
-        self.train_dataloader = train_dataloader
-        self.val_dataloader = val_dataloader
-        self.config = config
-        self.device = config['device']
-        self.model.to(self.device)
-        self.optimizer = AdamW(self.model.parameters(), lr=config['learning_rate'], weight_decay=config['weight_decay'])
+        self.optimizer = optimizer
+        self.criterion = criterion
+        self.device = device
+        self.logger = logging.getLogger(__name__)
 
-    def train_epoch(self, epoch_num: int):
+    def train_epoch(self, data_loader):
         self.model.train()
         total_loss = 0
-        progress_bar = tqdm(enumerate(self.train_dataloader), total=len(self.train_dataloader), desc=f"Epoch {epoch_num}")
-        for idx, batch in progress_bar:
+        for batch in data_loader:
+            inputs = batch['text'].to(self.device)
+            labels = batch['label'].to(self.device)
             self.optimizer.zero_grad()
-
-            input_ids = batch['input_ids'].to(self.device)
-            attention_mask = batch['attention_mask'].to(self.device)
-            labels = batch['labels'].to(self.device)
-
-            outputs = self.model(input_ids, attention_mask)
-            loss_fn = nn.CrossEntropyLoss()
-            loss = loss_fn(outputs, labels)
-
+            outputs = self.model(inputs)
+            loss = self.criterion(outputs, labels)
             loss.backward()
             self.optimizer.step()
-
             total_loss += loss.item()
+        return total_loss / len(data_loader)
 
-            progress_bar.set_postfix({"loss": total_loss / (idx + 1)})
-
-        return total_loss / len(self.train_dataloader)
-
-    def evaluate(self):
+    def evaluate(self, data_loader):
         self.model.eval()
+        true_labels = []
+        predicted_labels = []
         total_loss = 0
         with torch.no_grad():
-            for batch in self.val_dataloader:
-                input_ids = batch['input_ids'].to(self.device)
-                attention_mask = batch['attention_mask'].to(self.device)
-                labels = batch['labels'].to(self.device)
-
-                outputs = self.model(input_ids, attention_mask)
-                loss_fn = nn.CrossEntropyLoss()
-                loss = loss_fn(outputs, labels)
-
+            for batch in data_loader:
+                inputs = batch['text'].to(self.device)
+                labels = batch['label'].to(self.device)
+                outputs = self.model(inputs)
+                loss = self.criterion(outputs, labels)
                 total_loss += loss.item()
+                _, predicted = torch.max(outputs, 1)
+                true_labels.extend(labels.cpu().numpy())
+                predicted_labels.extend(predicted.cpu().numpy())
 
-        return total_loss / len(self.val_dataloader)
+        accuracy = accuracy_score(true_labels, predicted_labels)
+        f1 = f1_score(true_labels, predicted_labels, average='macro') # or 'binary', 'micro', 'weighted'
+        avg_loss = total_loss / len(data_loader)
 
-    def train(self):
-        for epoch in range(self.config['epochs']):
-            train_loss = self.train_epoch(epoch + 1)
-            val_loss = self.evaluate()
-            print(f"Epoch {epoch + 1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+        self.logger.info(f"Evaluation - Loss: {avg_loss:.4f}, Accuracy: {accuracy:.4f}, F1: {f1:.4f}")
+        return avg_loss, accuracy, f1
+
+    def predict(self, data_loader):
+      self.model.eval()
+      predicted_labels = []
+      with torch.no_grad():
+        for batch in data_loader:
+          inputs = batch['text'].to(self.device)
+          outputs = self.model(inputs)
+          _, predicted = torch.max(outputs, 1)
+          predicted_labels.extend(predicted.cpu().numpy())
+      return predicted_labels
