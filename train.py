@@ -1,46 +1,28 @@
-# train.py
-
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from src.models.model import ABSAModel
-from src.data.dataloaders import create_data_loader
-from src.training.trainer import train, evaluate
-from src.utils.config import load_config
-from transformers import AutoTokenizer
+import json
+from src.models.model import AspectBasedSentimentAnalysis
+from src.data.dataloaders import create_dataloaders
+from src.training.trainer import Trainer
+from src.utils.config import Config
 
-if __name__ == '__main__':
-    # Load configuration
-    config = load_config('config.json')
 
-    # Set device
+def main():
+    config = Config('config.json')
+    config = config.get_config()
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
 
-    # Load data (example data)
-    train_data = [
-        {'text': 'The food was great', 'aspect': 'food', 'sentiment': 1},
-        {'text': 'The service was bad', 'aspect': 'service', 'sentiment': 0}
-    ]
-    test_data = [
-        {'text': 'The price was high', 'aspect': 'price', 'sentiment': 0},
-        {'text': 'The atmosphere was nice', 'aspect': 'atmosphere', 'sentiment': 1}
-    ]
+    model = AspectBasedSentimentAnalysis(config['embedding_dim'], config['hidden_dim'], config['num_classes']).to(device)
+    train_dataloader, val_dataloader, test_dataloader = create_dataloaders(config['data_path'], config['batch_size'])
 
-    tokenizer = AutoTokenizer.from_pretrained(config['pretrained_model'])
-    # Create data loaders
-    train_loader = create_data_loader(train_data, tokenizer, config['max_len'], config['batch_size'])
-    test_loader = create_data_loader(test_data, tokenizer, config['max_len'], config['batch_size'])
+    trainer = Trainer(model, config, device)
 
-    # Initialize model
-    model = ABSAModel(len(tokenizer), config['embedding_dim'], config['hidden_dim'], config['output_dim']).to(device)
+    for epoch in range(config['epochs']):
+        train_loss = trainer.train_epoch(train_dataloader)
+        print(f"Epoch {epoch+1}/{config['epochs']}, Train Loss: {train_loss:.4f}")
 
-    # Define loss function and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'])
+        # Add validation and testing later
 
-    # Train the model
-    train(model, train_loader, optimizer, criterion, config['epochs'], device)
-
-    # Evaluate the model
-    loss, accuracy = evaluate(model, test_loader, criterion, device)
-    print(f'Test Loss: {loss:.4f}, Accuracy: {accuracy:.4f}')
+if __name__ == "__main__":
+    main()
