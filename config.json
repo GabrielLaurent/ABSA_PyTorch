@@ -1,0 +1,10 @@
+{
+  "pretrained_model": "bert-base-uncased",
+  "max_len": 128,
+  "batch_size": 32,
+  "embedding_dim": 100,
+  "hidden_dim": 256,
+  "output_dim": 3,
+  "learning_rate": 0.001,
+  "epochs": 10
+}
